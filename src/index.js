@@ -20,14 +20,10 @@ function main() {
     controls.update();
 
 
-
-
     const width = 1;  // ui: width
     const height = 1;  // ui: height
 
-    const geometry = new THREE.PlaneGeometry(width, height);
-    const geometry2 = new THREE.PlaneGeometry(width, height);
-    geometry2.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI));
+
 
     const loader = new THREE.TextureLoader();
 
@@ -38,22 +34,28 @@ function main() {
         let indx = 0;
         const yAxis = new THREE.Vector3(0, 1, 0);
 
-        for(let slide of contentJson) {
+        for (let slide of contentJson) {
+            const geometry = new THREE.PlaneGeometry(width, height);
+            // geometry.applyMatrix4(new THREE.Matrix4().makeRotationY(separatorAngle * indx))
+            const geometry2 = new THREE.PlaneGeometry(width, height);
+            // geometry2.applyMatrix4(new THREE.Matrix4().makeRotationY(separatorAngle * indx + Math.PI));
+            geometry2.applyMatrix4(new THREE.Matrix4().makeRotationY( Math.PI));
+
             const material = new THREE.MeshBasicMaterial({
                 map: loader.load(slide?.image),
             });
-        
+
             const plane = new THREE.Mesh(geometry, material);
             plane.position.z = 2;
             plane.position.applyAxisAngle(yAxis, separatorAngle * indx);
-            plane.userData = {url: slide?.url};
+            plane.userData = { url: slide?.url , yRotation: separatorAngle * indx};
             plane.layers.enable(1);
             planeArr.push(plane);
-        
+
             const plane2 = new THREE.Mesh(geometry2, material);
             plane2.position.z = 2;
             plane2.position.applyAxisAngle(yAxis, separatorAngle * indx)
-            plane2.userData = {url: slide?.url};
+            plane2.userData = { url: slide?.url, yRotation: separatorAngle * indx };
             plane2.layers.enable(1);
             planeArr.push(plane2);
 
@@ -95,8 +97,6 @@ function main() {
     }
 
     let shouldRotate = false;
-    // renderer.domElement.addEventListener('pointerenter', rotateY);
-    // renderer.domElement.addEventListener('pointerleave', rotateStop);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
@@ -110,7 +110,7 @@ function main() {
     }
 
     const raycaster = new THREE.Raycaster();
-    raycaster.layers.set( 1 );
+    raycaster.layers.set(1);
     const pointer = new THREE.Vector2();
 
     function onPointerMove(event) {
@@ -120,7 +120,7 @@ function main() {
         pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
         pointer.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
-        console.log('pointer loc!', pointer.x, pointer.y, event.clientX, event.clientY);
+        // console.log('pointer loc', pointer.x, pointer.y, event.clientX, event.clientY);
     }
 
     let mouseDown = false;
@@ -140,7 +140,6 @@ function main() {
         scene.add(light);
         scene.add(light.target);
     }
-
     {
         const color = 0xFFFFFF;
         const intensity = 5;
@@ -150,29 +149,41 @@ function main() {
         scene.add(light);
         scene.add(light.target);
     }
-    //-----------------------------
+
+    
 
     let INTERSECTED;
     let direction = 'ctrClockwise';
 
-    let arr = [];
-    function animate() {
+    let calced = false;
+    function calculationQuaternion() {
+        if (!calced) {
+            let vector = camera.position.clone();
+            // vector.y = vector.y - 2;
+            // vector.z = vector.z - 0.7;
 
-        if (model) {
-            if (pointer.x > 0.15 && pointer.x < 0.5)  {
-                model.rotation.y += 0.03;
-                direction = 'ctrClockwise';
-            } else if (pointer.x < -0.15 && pointer.x > -0.5) {
-                model.rotation.y -= 0.03;
-                direction = 'clockwise';
-            } else {
-                if (direction == 'ctrClockwise') {
-                    model.rotation.y += 0.01;
-                } else if (direction == 'clockwise') {
-                    model.rotation.y -= 0.01;
-                }
-                
-            }
+            let vector2 = INTERSECTED.position.clone();
+            vector2.z= vector2.z + 0;
+            rotationMatrix.lookAt( vector, vector2, INTERSECTED.up );
+			targetQuaternion.setFromRotationMatrix( rotationMatrix );
+            calced = true;
+        }
+    }
+
+    
+
+
+    const rotationMatrix = new THREE.Matrix4();
+    const targetQuaternion = new THREE.Quaternion();
+    const clock = new THREE.Clock();
+    const speed = 2;
+    
+
+    function animate() {
+        const delta = clock.getDelta();
+        if ( calced && !model.quaternion.equals( targetQuaternion ) ) {
+            const step = speed * delta;
+            INTERSECTED.quaternion.rotateTowards( targetQuaternion, step );
         }
 
         // update the picking ray with the camera and pointer position
@@ -185,6 +196,15 @@ function main() {
             INTERSECTED = intersects[0].object;
             INTERSECTED.scale.set(1.5, 1.5, 1);
             document.body.style.cursor = 'pointer';
+
+            // model.rotation.y = Math.acos((INTERSECTED.position.x), (INTERSECTED.position.z));
+            // console.log('new y rotation', model.rotation.y);
+
+            calculationQuaternion();
+
+            
+            
+
             if (mouseDown) {
                 window.open(INTERSECTED.userData.url);
             }
@@ -193,6 +213,27 @@ function main() {
                 INTERSECTED.scale.set(1, 1, 1);
             }
             document.body.style.cursor = 'default';
+
+            if (model) {
+                // if (pointer.x > 0.15 && pointer.x < 0.5) {
+                //     model.rotation.y += 0.03;
+                //     direction = 'ctrClockwise';
+                // } else if (pointer.x < -0.15 && pointer.x > -0.5) {
+                //     model.rotation.y -= 0.03;
+                //     direction = 'clockwise';
+                // } else {
+                // if (direction == 'ctrClockwise') {
+                //     model.rotation.y += 0.01;
+                // } else if (direction == 'clockwise') {
+                //     model.rotation.y -= 0.01;
+                // }
+
+                // }
+
+                if (!calced) {
+                    model.rotation.y += 0.01;
+                }
+            }
         }
 
         renderer.render(scene, camera);
