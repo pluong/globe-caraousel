@@ -36,10 +36,9 @@ function main() {
 
         for (let slide of contentJson) {
             const geometry = new THREE.PlaneGeometry(width, height);
-            // geometry.applyMatrix4(new THREE.Matrix4().makeRotationY(separatorAngle * indx))
+            geometry.applyMatrix4(new THREE.Matrix4().makeRotationY(separatorAngle * indx))
             const geometry2 = new THREE.PlaneGeometry(width, height);
-            // geometry2.applyMatrix4(new THREE.Matrix4().makeRotationY(separatorAngle * indx + Math.PI));
-            geometry2.applyMatrix4(new THREE.Matrix4().makeRotationY( Math.PI));
+            geometry2.applyMatrix4(new THREE.Matrix4().makeRotationY(separatorAngle * indx + Math.PI));
 
             const material = new THREE.MeshBasicMaterial({
                 map: loader.load(slide?.image),
@@ -155,83 +154,88 @@ function main() {
     let INTERSECTED;
     let direction = 'ctrClockwise';
 
-    let calced = false;
-    function calculationQuaternion() {
-        if (!calced) {
-            let vector = camera.position.clone();
-            // vector.y = vector.y - 2;
-            // vector.z = vector.z - 0.7;
+    let newCameraPosition = camera.position.clone();
+    newCameraPosition.y += 2; 
+    newCameraPosition.z += 0.7; 
 
-            let vector2 = INTERSECTED.position.clone();
-            vector2.z= vector2.z + 0;
-            rotationMatrix.lookAt( vector, vector2, INTERSECTED.up );
-			targetQuaternion.setFromRotationMatrix( rotationMatrix );
-            calced = true;
-        }
-    }
+    let seekToRotationY = undefined;
+    let currentAngle;
+    let pauseIntersection = false;
 
-    
-
-
-    const rotationMatrix = new THREE.Matrix4();
-    const targetQuaternion = new THREE.Quaternion();
-    const clock = new THREE.Clock();
-    const speed = 2;
-    
 
     function animate() {
-        const delta = clock.getDelta();
-        if ( calced && !model.quaternion.equals( targetQuaternion ) ) {
-            const step = speed * delta;
-            INTERSECTED.quaternion.rotateTowards( targetQuaternion, step );
-        }
-
         // update the picking ray with the camera and pointer position
         raycaster.setFromCamera(pointer, camera);
 
         // calculate objects intersecting the picking ray
         const intersects = raycaster.intersectObjects(scene.children);
 
-        if (intersects.length > 0) {
+        if (!pauseIntersection && intersects.length > 0) {
             INTERSECTED = intersects[0].object;
             INTERSECTED.scale.set(1.5, 1.5, 1);
             document.body.style.cursor = 'pointer';
 
-            // model.rotation.y = Math.acos((INTERSECTED.position.x), (INTERSECTED.position.z));
-            // console.log('new y rotation', model.rotation.y);
+            /* anoter way of rotating to the slide hovered over */
+            // model.lookAt(newCameraPosition);
+            // model.rotation.y -= INTERSECTED.userData.yRotation;
 
-            calculationQuaternion();
+            seekToRotationY = Math.atan2((newCameraPosition.x - INTERSECTED.position.x), (newCameraPosition.z - INTERSECTED.position.z)) - INTERSECTED.userData.yRotation;
+            pauseIntersection = true;
+            currentAngle = model.rotation.y % (2 * Math.PI);
+            console.log('seektoRotation', seekToRotationY, 'currAng', currentAngle);
+            if (currentAngle > seekToRotationY) {
+                direction = 'clockwise';
+            } else if (currentAngle < seekToRotationY) {
+                direction = 'ctrClockwise';
+            } else {
+                direction = 'none';
+            }
 
-            
-            
+            // stop detecting intersections for 2 seconds
+            setTimeout(() => pauseIntersection = false, 3000);
+
 
             if (mouseDown) {
                 window.open(INTERSECTED.userData.url);
             }
         } else {
-            if (INTERSECTED) {
-                INTERSECTED.scale.set(1, 1, 1);
-            }
+            
             document.body.style.cursor = 'default';
 
             if (model) {
-                // if (pointer.x > 0.15 && pointer.x < 0.5) {
-                //     model.rotation.y += 0.03;
-                //     direction = 'ctrClockwise';
-                // } else if (pointer.x < -0.15 && pointer.x > -0.5) {
-                //     model.rotation.y -= 0.03;
-                //     direction = 'clockwise';
-                // } else {
-                // if (direction == 'ctrClockwise') {
-                //     model.rotation.y += 0.01;
-                // } else if (direction == 'clockwise') {
-                //     model.rotation.y -= 0.01;
-                // }
-
-                // }
-
-                if (!calced) {
+                if (seekToRotationY !== undefined) {
+                    if (direction === 'clockwise') {
+                        console.log('clockwise');
+                        model.rotation.y -= 0.07;
+                        if (model.rotation.y < seekToRotationY) {
+                            direction = 'none';
+                        }
+                    } else if (direction === 'ctrClockwise') {
+                        console.log('ctrClockwise');
+                        model.rotation.y += 0.07;
+                        if (model.rotation.y > seekToRotationY) {
+                            direction = 'none'
+                        }
+                    } else if (direction === 'none') {
+                        console.log('reached!!');
+                        direction = undefined;
+                        setTimeout(() => {
+                            seekToRotationY = undefined;
+                        console.log('setting seek to undefined');}, 3000);
+                    } else {
+                        // do nothing
+                        console.log('doing nothing');
+                        if (INTERSECTED) {
+                            INTERSECTED.scale.set(1.5, 1.5, 1);
+                        }
+                    }
+                    
+                } else {
+                    console.log('seekRotY', seekToRotationY);
                     model.rotation.y += 0.01;
+                    if (INTERSECTED) {
+                        INTERSECTED.scale.set(1, 1, 1);
+                    }
                 }
             }
         }
