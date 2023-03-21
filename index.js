@@ -62,7 +62,7 @@ function main() {
     {
         const loader = new GLTFLoader();
 
-        loader.load('oceanic_currents/scene.gltf', (gltf) => {
+        loader.load('oceanic_currents.glb', (gltf) => {
             model = gltf.scene;
             model.add(plane);
             model.add(plane2);

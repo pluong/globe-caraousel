@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import * as content from '../data.json';
 
 function main() {
@@ -10,7 +11,12 @@ function main() {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 500);
 
-    const renderer = new THREE.WebGLRenderer();
+    let canvas;
+
+    const renderer = new THREE.WebGLRenderer({
+        canvas: canvas
+    });
+
     renderer.setSize(window.innerWidth, window.innerHeight);
     // document.body.appendChild(renderer.domElement);
     document.querySelector('#container').appendChild(renderer.domElement);
@@ -40,18 +46,28 @@ function main() {
             const geometry2 = new THREE.PlaneGeometry(width, height);
             geometry2.applyMatrix4(new THREE.Matrix4().makeRotationY(separatorAngle * indx + Math.PI));
 
-            const material = new THREE.MeshBasicMaterial({
-                map: loader.load(slide?.image),
+            let plane, plane2, imgAspectRatio;
+
+            const texture = loader.load(slide?.image, (text) => {
+
+                imgAspectRatio = text.image.height / text.image.width;
+                plane.scale.set(1, imgAspectRatio, 1);
+                plane2.scale.set(1, imgAspectRatio, 1);
+                texture.userData = { aspectRatio: imgAspectRatio };
             });
 
-            const plane = new THREE.Mesh(geometry, material);
+            const material = new THREE.MeshBasicMaterial({
+                map: texture,
+            });
+
+            plane = new THREE.Mesh(geometry, material);
             plane.position.z = 2;
             plane.position.applyAxisAngle(yAxis, separatorAngle * indx);
-            plane.userData = { url: slide?.url , yRotation: separatorAngle * indx};
+            plane.userData = { url: slide?.url, yRotation: separatorAngle * indx };
             plane.layers.enable(1);
             planeArr.push(plane);
 
-            const plane2 = new THREE.Mesh(geometry2, material);
+            plane2 = new THREE.Mesh(geometry2, material);
             plane2.position.z = 2;
             plane2.position.applyAxisAngle(yAxis, separatorAngle * indx)
             plane2.userData = { url: slide?.url, yRotation: separatorAngle * indx };
@@ -65,12 +81,46 @@ function main() {
     camera.position.set(0, 0, 150);
     camera.lookAt(0, 0, 0);
 
+    // Galaxy
+    let galaxyGeometry = new THREE.SphereGeometry(100, 32, 32);
+    let galaxyMaterial = new THREE.MeshBasicMaterial({
+        side: THREE.BackSide
+    });
+    let galaxy = new THREE.Mesh(galaxyGeometry, galaxyMaterial);
+
+    // Load Galaxy Textures
+    loader.load(
+        'starfield.png',
+        function (texture) {
+            galaxyMaterial.map = texture;
+            scene.add(galaxy);
+        }
+    );
+
     //------------------------- earth 3d model loader
     let model;
     {
-        const loader = new GLTFLoader();
+        const gltfLoader = new GLTFLoader();
 
-        loader.load('oceanic_currents/scene.gltf', (gltf) => {
+
+
+        // let backgroundTexture = loader.load('paul-volkmer-qVotvbsuM_c-unsplash.jpg', function (texture) {
+
+        //     texture.mapping = THREE.EquirectangularReflectionMapping;
+
+        //     scene.background = texture;
+        //     scene.environment = texture;
+        // });
+
+        // backgroundTexture.minFilter = THREE.LinearFilter;
+        // scene.background = backgroundTexture;
+        // scene.environment = backgroundTexture;
+
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath( 'https://www.gstatic.com/draco/versioned/decoders/1.4.1/draco_wasm_wrapper.js' );
+        gltfLoader.setDRACOLoader( dracoLoader );
+
+        gltfLoader.load('oceanic_currents_min.glb', (gltf) => {
             model = gltf.scene;
             planeArr.forEach(plane => model.add(plane));
             scene.add(model);
@@ -149,14 +199,14 @@ function main() {
         scene.add(light.target);
     }
 
-    
+
 
     let INTERSECTED;
     let direction = 'ctrClockwise';
 
     let newCameraPosition = camera.position.clone();
-    newCameraPosition.y += 2; 
-    newCameraPosition.z += 0.7; 
+    newCameraPosition.y += 2;
+    newCameraPosition.z += 0.7;
 
     let seekToRotationY = undefined;
     let currentAngle;
@@ -199,7 +249,7 @@ function main() {
                 window.open(INTERSECTED.userData.url);
             }
         } else {
-            
+
             document.body.style.cursor = 'default';
 
             if (model) {
@@ -221,7 +271,8 @@ function main() {
                         direction = undefined;
                         setTimeout(() => {
                             seekToRotationY = undefined;
-                        console.log('setting seek to undefined');}, 3000);
+                            console.log('setting seek to undefined');
+                        }, 3000);
                     } else {
                         // do nothing
                         console.log('doing nothing');
@@ -229,7 +280,7 @@ function main() {
                             INTERSECTED.scale.set(1.5, 1.5, 1);
                         }
                     }
-                    
+
                 } else {
                     console.log('seekRotY', seekToRotationY);
                     model.rotation.y += 0.01;

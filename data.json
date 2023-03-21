@@ -6,5 +6,13 @@
     {
         "image": "bread.jpeg",
         "url": "https://www.stackoverflow.com"
+    },
+    {
+        "image": "IMG_0549.jpeg",
+        "url": "https://www.google.com"
+    },
+    {
+        "image": "IMG_1767.jpeg",
+        "url": "https://www.stackoverflow.com"
     }
 ]
