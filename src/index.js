@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
 import * as content from '../data.json';
 
 function main() {
@@ -117,10 +118,10 @@ function main() {
         // scene.environment = backgroundTexture;
 
         const dracoLoader = new DRACOLoader();
-        dracoLoader.setDecoderPath( 'https://www.gstatic.com/draco/versioned/decoders/1.4.1/draco_wasm_wrapper.js' );
+        dracoLoader.setDecoderPath( 'https://threejs.org/examples/jsm/libs/draco/' );
         gltfLoader.setDRACOLoader( dracoLoader );
 
-        gltfLoader.load('oceanic_currents_min.glb', (gltf) => {
+        gltfLoader.load('oceanic_currents.glb', (gltf) => {
             model = gltf.scene;
             planeArr.forEach(plane => model.add(plane));
             scene.add(model);
@@ -142,6 +143,11 @@ function main() {
             controls.maxDistance = boxSize * 10;
             controls.target.copy(boxCenter);
             controls.update();
+
+            const exporter = new OBJExporter();
+            const data = exporter.parse( model );
+            
+            console.log(data);
         });
     }
 
@@ -232,7 +238,7 @@ function main() {
             seekToRotationY = Math.atan2((newCameraPosition.x - INTERSECTED.position.x), (newCameraPosition.z - INTERSECTED.position.z)) - INTERSECTED.userData.yRotation;
             pauseIntersection = true;
             currentAngle = model.rotation.y % (2 * Math.PI);
-            console.log('seektoRotation', seekToRotationY, 'currAng', currentAngle);
+            // console.log('seektoRotation', seekToRotationY, 'currAng', currentAngle);
             if (currentAngle > seekToRotationY) {
                 direction = 'clockwise';
             } else if (currentAngle < seekToRotationY) {
@@ -255,7 +261,7 @@ function main() {
             if (model) {
                 if (seekToRotationY !== undefined) {
                     if (direction === 'clockwise') {
-                        console.log('clockwise');
+                        // console.log('clockwise');
                         model.rotation.y -= 0.07;
                         if (model.rotation.y < seekToRotationY) {
                             direction = 'none';
@@ -271,18 +277,18 @@ function main() {
                         direction = undefined;
                         setTimeout(() => {
                             seekToRotationY = undefined;
-                            console.log('setting seek to undefined');
+                            // console.log('setting seek to undefined');
                         }, 3000);
                     } else {
                         // do nothing
-                        console.log('doing nothing');
+                        // console.log('doing nothing');
                         if (INTERSECTED) {
                             INTERSECTED.scale.set(1.5, 1.5, 1);
                         }
                     }
 
                 } else {
-                    console.log('seekRotY', seekToRotationY);
+                    // console.log('seekRotY', seekToRotationY);
                     model.rotation.y += 0.01;
                     if (INTERSECTED) {
                         INTERSECTED.scale.set(1, 1, 1);
@@ -297,7 +303,36 @@ function main() {
     }
 
 
+    
+
+    // const link = document.createElement( 'a' );
+    // link.style.display = 'none';
+    // document.body.appendChild( link );
+
+    
+
     animate();
+
+}
+
+function downloadFile() {
+
+    const result = exporter.parse( mesh );
+    saveArrayBuffer( result, 'file.drc' );
+
+}
+
+function save( blob, filename ) {
+
+    link.href = URL.createObjectURL( blob );
+    link.download = filename;
+    link.click();
+
+}
+
+function saveArrayBuffer( buffer, filename ) {
+
+    save( new Blob( [ buffer ], { type: 'application/octet-stream' } ), filename );
 
 }
 
